@@ -1,10 +1,11 @@
 """Shared fixtures only - no test logic here."""
 
+import json
+
 import pytest
 from playwright.sync_api import APIRequestContext, Browser, Page, Playwright
 
 from data.factories import Customer, make_customer
-from pages.login_page import LoginPage
 from utils import config
 from utils.api_client import AuthClient, CatalogClient, ProductsClient
 
@@ -62,22 +63,30 @@ def registered_customer(playwright: Playwright, api_base_url: str) -> Customer:
 
 @pytest.fixture(scope="session")
 def storage_state_path(
-    browser: Browser,
-    base_url: str,
+    playwright: Playwright,
+    api_base_url: str,
     tmp_path_factory,
     registered_customer: Customer,
-    _configure_test_id,
 ) -> str:
-    """Log the fresh customer in once via the UI and persist the session for reuse."""
+    """Authenticate via the API and seed the session token directly, so logged-in flows never
+    depend on the (flaky) UI login form rendering. Toolshop reads the JWT from localStorage."""
+    request = playwright.request.new_context(base_url=api_base_url)
+    response = request.post(
+        "/users/login",
+        data={"email": registered_customer.email, "password": registered_customer.password},
+    )
+    assert response.status == 200, response.text()
+    token = response.json()["access_token"]
+    request.dispose()
+
+    state = {
+        "cookies": [],
+        "origins": [
+            {"origin": config.BASE_URL, "localStorage": [{"name": "auth-token", "value": token}]}
+        ],
+    }
     path = tmp_path_factory.mktemp("auth") / "customer.json"
-    context = browser.new_context(base_url=base_url)
-    page = context.new_page()
-    login = LoginPage(page)
-    login.open()
-    login.login(registered_customer.email, registered_customer.password)
-    page.wait_for_url("**/account")
-    context.storage_state(path=str(path))
-    context.close()
+    path.write_text(json.dumps(state))
     return str(path)
 
 
