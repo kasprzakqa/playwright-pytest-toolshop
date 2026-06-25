@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Hosted runners cannot reliably reach the public Toolshop SPA (the demo throttles datacenter IPs),
+# so CI gates the API suite, which IS reachable from runners. The UI e2e and a11y suites run locally
+# and via the planned containerized job - see docs/test-strategy.md (Planned hardening).
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: ruff check .
+      - run: black --check .
+
+  api:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+      - run: python -m playwright install chromium
+      - name: API suite (deploy gate)
+        run: >
+          pytest tests/api -n auto --reruns 1 --reruns-delay 3
+          --html=report.html --self-contained-html
+      - name: Upload report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-report
+          path: report.html
+          retention-days: 14

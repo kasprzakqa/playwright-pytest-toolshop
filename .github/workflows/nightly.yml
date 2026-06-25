@@ -1,0 +1,27 @@
+name: Nightly API regression
+
+# Scheduled health-check of the API suite. Cross-browser UI nightly runs come with the planned
+# containerized job (the public demo is not reliably reachable from hosted runners).
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+      - run: python -m playwright install chromium
+      - run: pytest tests/api -n auto --reruns 1 --reruns-delay 3
