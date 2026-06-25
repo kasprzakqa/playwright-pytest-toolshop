@@ -1,4 +1,7 @@
-name: Nightly regression
+name: Nightly API regression
+
+# Scheduled health-check of the API suite. Cross-browser UI nightly runs come with the planned
+# containerized job (the public demo is not reliably reachable from hosted runners).
 
 on:
   schedule:
@@ -6,12 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  cross-browser:
+  api:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,22 +22,6 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('requirements.txt') }}
-      - run: python -m playwright install --with-deps ${{ matrix.browser }}
-      - name: Full regression on ${{ matrix.browser }}
-        run: >
-          pytest -n auto --reruns 1 --reruns-delay 3
-          --browser ${{ matrix.browser }}
-          --html=report-${{ matrix.browser }}.html --self-contained-html
-          --tracing=retain-on-failure
-          --screenshot=only-on-failure
-          --output=test-results-${{ matrix.browser }}
-      - name: Upload ${{ matrix.browser }} report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: nightly-${{ matrix.browser }}
-          path: |
-            report-${{ matrix.browser }}.html
-            test-results-${{ matrix.browser }}/
-          retention-days: 14
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+      - run: python -m playwright install chromium
+      - run: pytest tests/api -n auto --reruns 1 --reruns-delay 3
