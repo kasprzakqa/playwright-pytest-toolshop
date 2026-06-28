@@ -19,6 +19,7 @@ class Product(_Model):
     price: float
     is_location_offer: bool
     is_rental: bool
+    in_stock: bool
     description: str | None = None
 
 

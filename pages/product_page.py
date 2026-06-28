@@ -12,6 +12,9 @@ class ProductDetailPage(BasePage):
         self.product_name = page.get_by_test_id("product-name")
         self.unit_price = page.get_by_test_id("unit-price")
 
+    def open(self, product_id: str) -> None:
+        super().open(f"/product/{product_id}")
+
     def add_to_cart(self) -> None:
         self.add_to_cart_button.click()
         # Wait for the cart badge to reflect the add before navigating onward (avoids a race).

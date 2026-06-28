@@ -6,18 +6,13 @@ import pytest
 from playwright.sync_api import expect
 
 from pages.checkout_page import CheckoutPage
-from pages.home_page import HomePage
 from pages.product_page import ProductDetailPage
 
 
 @pytest.mark.smoke
-def test_checkout_with_cash_on_delivery_succeeds(logged_in_page):
-    home = HomePage(logged_in_page)
-    home.open("/")
-    home.search("Pliers")  # a reliably in-stock product, so add-to-cart is enabled
-    home.open_first_product()
-
+def test_checkout_with_cash_on_delivery_succeeds(logged_in_page, in_stock_product):
     product = ProductDetailPage(logged_in_page)
+    product.open(in_stock_product.id)
     expect(product.unit_price).to_be_visible()
     amount = re.search(r"[\d.]+", product.unit_price.inner_text()).group()
     product.add_to_cart()
