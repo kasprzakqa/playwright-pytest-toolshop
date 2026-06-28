@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import APIRequestContext, Browser, Page, Playwright
 
 from data.factories import Customer, make_customer
+from data.models import Paginated, Product
 from utils import config
 from utils.api_client import AuthClient, CatalogClient, ProductsClient
 
@@ -47,6 +48,13 @@ def catalog_client(api_context: APIRequestContext) -> CatalogClient:
 @pytest.fixture
 def auth_client(api_context: APIRequestContext) -> AuthClient:
     return AuthClient(api_context)
+
+
+@pytest.fixture
+def in_stock_product(products_client: ProductsClient) -> Product:
+    """An in-stock, non-rental product, so add-to-cart is enabled (the demo reseeds stock)."""
+    catalog = Paginated[Product].model_validate(products_client.list().json())
+    return next(p for p in catalog.data if p.in_stock and not p.is_rental)
 
 
 @pytest.fixture(scope="session")
